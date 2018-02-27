@@ -1,5 +1,7 @@
 package com.mchange.sc.v1
 
+import scala.collection._
+
 package object texttable {
   private val SEP = System.lineSeparator()
 
@@ -23,9 +25,14 @@ package object texttable {
       val Default = Format( Justification.Left, Case.Mixed )
     }
     final case class Format( justification : Format.Justification, `case` : Format.Case )
-  }
-  final case class Column( header : String, fieldLength : Int, headerFormat : Column.Format = Column.Format.Default, bodyFormat : Column.Format = Column.Format.Default )
 
+    def apply( header : String ) : Column = Column( header = header, mbFieldLength = None, headerFormat = Column.Format.Default, bodyFormat = Column.Format.Default )
+  }
+  final case class Column( header : String, mbFieldLength : Option[Int], headerFormat : Column.Format, bodyFormat : Column.Format )
+
+  final object Row {
+    def apply[T]( t : T ) : Row[T] = Row( t, "" )
+  }
   final case class Row[T]( datum : T, rightSideAnnotation : String )
 
   private def justificationFlag( format : Column.Format ) : String = if ( format.justification == Column.Format.Justification.Left ) "-" else ""
@@ -42,24 +49,40 @@ package object texttable {
     }
   }
 
-  private def formattedHeader( column : Column ) = String.format( s"%${hjf(column)}${column.fieldLength}s", recase( column.headerFormat, column.header ) )
+  private def formattedHeader( column : Column, fieldLength : Int ) = String.format( s"%${hjf(column)}${fieldLength}s", recase( column.headerFormat, column.header ) )
 
-  private def formattedRowEntry( column : Column, field : String ) = String.format( s"%${bjf(column)}${column.fieldLength}s", recase( column.bodyFormat, field ) )
-
-  private val freTupled = (formattedRowEntry _).tupled
+  private def formattedRowEntry( column : Column, fieldLength : Int, field : String ) = String.format( s"%${bjf(column)}${fieldLength}s", recase( column.bodyFormat, field ) )
 
   def extractProduct( product : Product ) : Seq[String] = product.productIterator.map( _.toString ).toSeq
 
   def appendTable[T]( columns : Seq[Column], extract : T => Seq[String] )( destination : Appendable, rows : Seq[Row[T]] ) : Unit = {
+
+    val _rowCache = mutable.HashMap.empty[Row[T], Seq[String]]
+
+    val _fieldLengthsCache = mutable.HashMap.empty[Column,Int]
+
+    def _findFieldLength( column : Column ) : Int = {
+      column.mbFieldLength match {
+        case Some( fieldLength ) => fieldLength
+        case None => {
+          val index = columns.indexOf( column )
+          rows.foldLeft( column.header.length )( ( lastMax, row ) => math.max( lastMax, stringRow( row )(index).length ) )
+        }
+      }
+    }
+
+    def stringRow( row : Row[T] ) =  _rowCache.getOrElseUpdate( row, extract( row.datum ) )
+
+    def fieldLength( column : Column ) : Int = _fieldLengthsCache.getOrElseUpdate( column, _findFieldLength( column ) )
 
     def appendln( s : String ) = {
       destination.append( s )
       destination.append( SEP )
     }
 
-    val cap = columns.map( column => span( column.fieldLength + 2) ).mkString( "+","+","+" )
+    val cap = columns.map( column => span( fieldLength( column ) + 2) ).mkString( "+","+","+" )
 
-    val paddedHeaders = columns.map( formattedHeader )
+    val paddedHeaders = columns.map( column => formattedHeader( column, fieldLength( column ) ) )
 
     val headerLine = paddedHeaders.mkString( "| ", " | ", " |")
     appendln( cap )
@@ -67,8 +90,10 @@ package object texttable {
     appendln( cap )
     rows.foreach { row =>
       val formattedRowEntries = {
-        val fields = extract( row.datum )
-        columns.zip( fields ).map( freTupled )
+        val fields = stringRow( row )
+        columns.zip( fields ).map { case ( column, field ) =>
+          formattedRowEntry( column, fieldLength( column ), field )
+        }
       }
       val datumLine = formattedRowEntries.mkString( "| ", " | ", " |") + row.rightSideAnnotation
       appendln( datumLine )
