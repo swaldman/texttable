@@ -55,7 +55,7 @@ package object texttable {
 
   def extractProduct( product : Product ) : Seq[String] = product.productIterator.map( _.toString ).toSeq
 
-  def appendTable[T]( columns : Seq[Column], extract : T => Seq[String] )( destination : Appendable, rows : Seq[Row[T]] ) : Unit = {
+  def appendTable[T]( columns : Seq[Column], extract : T => Seq[String] )( destination : Appendable, rows : Iterable[Row[T]] ) : Unit = {
 
     val _rowCache = mutable.HashMap.empty[Row[T], Seq[String]]
 
@@ -101,15 +101,15 @@ package object texttable {
     appendln( cap )
   }
 
-  def appendTable( columns : Seq[Column] )( destination : Appendable, rows : Seq[Row[Product]] ) : Unit = {
+  def appendTable( columns : Seq[Column] )( destination : Appendable, rows : Iterable[Row[Product]] ) : Unit = {
     appendTable( columns, extractProduct )( destination, rows)
   }
 
-  def printTable[T]( columns : Seq[Column], extract : T => Seq[String] )( rows : Seq[Row[T]] ) : Unit = {
+  def printTable[T]( columns : Seq[Column], extract : T => Seq[String] )( rows : Iterable[Row[T]] ) : Unit = {
     appendTable[T]( columns, extract )( System.out, rows )
   }
 
-  def printTable( columns : Seq[Column] )( rows : Seq[Row[Product]] ) : Unit = {
-    appendTable( columns )( System.out, rows : Seq[Row[Product]] )
+  def printTable( columns : Seq[Column] )( rows : Iterable[Row[Product]] ) : Unit = {
+    appendTable( columns )( System.out, rows : Iterable[Row[Product]] )
   }
 }
