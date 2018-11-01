@@ -5,6 +5,8 @@ import scala.collection._
 package object texttable {
   private val SEP = System.lineSeparator()
 
+  private val DefaultRowFilter : String => Boolean = _ => true
+
   private def span( len : Int ) = (0 until len).map(_ => "-").mkString
 
   final object Column {
@@ -33,7 +35,7 @@ package object texttable {
   final object Row {
     def apply[T]( t : T ) : Row[T] = Row( t, "" )
   }
-  final case class Row[T]( datum : T, rightSideAnnotation : String )
+  final case class Row[+T]( datum : T, rightSideAnnotation : String )
 
   private def justificationFlag( format : Column.Format ) : String = if ( format.justification == Column.Format.Justification.Left ) "-" else ""
   private def hjf( column : Column ) = justificationFlag( column.headerFormat ) // header justification flag
@@ -55,7 +57,7 @@ package object texttable {
 
   def extractProduct( product : Product ) : Seq[String] = product.productIterator.map( _.toString ).toSeq
 
-  def appendTable[T]( columns : Seq[Column], extract : T => Seq[String] )( destination : Appendable, rows : Iterable[Row[T]] ) : Unit = {
+  def appendTable[T]( columns : Seq[Column], extract : T => Seq[String], rowFilter : String => Boolean )( destination : Appendable, rows : Iterable[Row[T]] ) : Unit = {
 
     val _rowCache = mutable.HashMap.empty[Row[T], Seq[String]]
 
@@ -96,20 +98,38 @@ package object texttable {
         }
       }
       val datumLine = formattedRowEntries.mkString( "| ", " | ", " |") + row.rightSideAnnotation
-      appendln( datumLine )
+      if ( rowFilter( datumLine ) ) {
+        appendln( datumLine )
+      }
     }
     appendln( cap )
   }
 
-  def appendTable( columns : Seq[Column] )( destination : Appendable, rows : Iterable[Row[Product]] ) : Unit = {
-    appendTable( columns, extractProduct )( destination, rows)
+  def appendTable[T]( columns : Seq[Column], extract : T => Seq[String] )( destination : Appendable, rows : Iterable[Row[T]] ) : Unit = {
+    appendTable[T]( columns, extract, DefaultRowFilter )( destination, rows )
+  }
+
+  def printTable[T]( columns : Seq[Column], extract : T => Seq[String], rowFilter : String => Boolean )( rows : Iterable[Row[T]] ) : Unit = {
+    appendTable[T]( columns, extract, rowFilter )( System.out, rows )
   }
 
   def printTable[T]( columns : Seq[Column], extract : T => Seq[String] )( rows : Iterable[Row[T]] ) : Unit = {
-    appendTable[T]( columns, extract )( System.out, rows )
+    printTable[T]( columns, extract, DefaultRowFilter )( rows )
   }
 
-  def printTable( columns : Seq[Column] )( rows : Iterable[Row[Product]] ) : Unit = {
-    appendTable( columns )( System.out, rows : Iterable[Row[Product]] )
+  def appendProductTable( columns : Seq[Column], rowFilter : String => Boolean )( destination : Appendable, rows : Iterable[Row[Product]] ) : Unit = {
+    appendTable( columns, extractProduct, rowFilter )( destination, rows)
+  }
+
+  def appendProductTable( columns : Seq[Column] )( destination : Appendable, rows : Iterable[Row[Product]] ) : Unit = {
+    appendProductTable( columns, DefaultRowFilter )( destination, rows )
+  }
+
+  def printProductTable( columns : Seq[Column], rowFilter : String => Boolean )( rows : Iterable[Row[Product]] ) : Unit = {
+    appendProductTable( columns, rowFilter )( System.out, rows : Iterable[Row[Product]] )
+  }
+
+  def printProductTable( columns : Seq[Column] )( rows : Iterable[Row[Product]] ) : Unit = {
+    printProductTable( columns, DefaultRowFilter )( rows )
   }
 }
