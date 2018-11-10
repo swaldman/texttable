@@ -6,11 +6,11 @@ organization := "com.mchange"
 
 name := "texttable"
 
-version := "0.0.2-SNAPSHOT"
+version := "0.0.2"
 
-scalaVersion := "2.11.8"
+scalaVersion := "2.11.12"
 
-crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.4")
+crossScalaVersions := Seq("2.10.7", "2.11.12", "2.12.7")
 
 scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked" /*, "-Xlog-implicits" */)
 
